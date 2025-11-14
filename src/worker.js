@@ -1,4 +1,3 @@
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -119,11 +118,17 @@ async function handleApi(request, env, ctx) {
         return jsonResponse(401, { ok: false, message: "Invalid credentials." });
       }
 
-      await env.BOX_DB.prepare(
-        "INSERT INTO admins (email) VALUES (?) ON CONFLICT(email) DO NOTHING"
-      )
-        .bind(email)
-        .run();
+      // Ensure admin exists (idempotent, D1/SQLite-friendly)
+      try {
+        await env.BOX_DB.prepare(
+          "INSERT OR IGNORE INTO admins (email) VALUES (?)"
+        )
+          .bind(email)
+          .run();
+      } catch (e) {
+        console.error("Failed to insert admin:", e);
+        // Don't fail login just because of this bookkeeping insert
+      }
 
       const sessionId = crypto.randomUUID();
       const now = new Date();
@@ -338,6 +343,7 @@ async function handleApi(request, env, ctx) {
       return jsonResponse(200, { ok: true, crypto_address: updated.crypto_address });
     }
 
+    // Fallback
     return jsonResponse(404, { ok: false, message: "Not found" });
   } catch (err) {
     if (err && typeof err.status === "number" && err.body) {
