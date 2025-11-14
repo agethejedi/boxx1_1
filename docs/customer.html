@@ -2,68 +2,101 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RiskXLabs Box – Submit Crypto Address</title>
+  <title>RiskXLabs Box – Customer Session</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="rx-page">
-
-  <div class="rx-shell">
-    <header class="rx-header">
-      <div class="rx-logo-mark">RX</div>
-      <div class="rx-header-text">
-        <h1>RiskXLabs Box</h1>
-        <p>Secure One-Time Crypto Address Submission</p>
-      </div>
+<body class="box-body">
+  <div class="box-shell">
+    <!-- Top Nav -->
+    <header class="box-topbar">
+      <a href="index.html" class="box-pill-link">
+        &larr; Back
+      </a>
     </header>
 
-    <main class="rx-main">
-      <section class="rx-card">
-        <h2>Submit Your Crypto Address</h2>
-        <p class="rx-muted">
-          Enter the 7-character Box Code provided by your admin, then paste your crypto address.
-          This Box Code is valid for 15 minutes and may be used only once.
+    <!-- Masthead -->
+    <section class="box-masthead">
+      <div class="box-logo-orbit">
+        <div class="box-logo-disc">X</div>
+      </div>
+      <div class="box-masthead-text">
+        <div class="box-masthead-label">RISKXLABS</div>
+        <h1 class="box-masthead-title">Box</h1>
+        <p class="box-masthead-subtitle">
+          Submit your crypto address using a one-time Box Code.
         </p>
+      </div>
+    </section>
 
-        <form id="customer-form" class="rx-form">
-          <label class="rx-label">
-            Box Code
+    <!-- Main Card -->
+    <main class="box-main">
+      <section class="box-card box-card-primary">
+        <header class="box-card-header">
+          <h2 class="box-card-title">Customer Session</h2>
+          <p class="box-card-subtitle">
+            Enter the 7-character Box Code you were given, along with the crypto address you want to send.
+            The code is valid for 15 minutes from when it was created.
+          </p>
+        </header>
+
+        <form id="customer-form" class="box-form">
+          <!-- Box Code -->
+          <div class="box-field-group">
+            <label class="box-label" for="code">Box Code</label>
             <input
               id="code"
               type="text"
-              class="rx-input"
+              class="box-input"
               maxlength="7"
+              placeholder="E.g. A123456"
               required
-              placeholder="E123456"
             />
-          </label>
+            <div class="box-help">
+              One letter followed by six digits. Example: Q594210.
+            </div>
+          </div>
 
-          <label class="rx-label">
-            Crypto Address
+          <!-- Crypto Address -->
+          <div class="box-field-group">
+            <label class="box-label" for="crypto-address">Crypto Address</label>
             <textarea
               id="crypto-address"
-              class="rx-input rx-input-multiline"
-              rows="3"
+              class="box-input box-input-multiline"
+              rows="4"
+              placeholder="Paste the full crypto address here"
               required
-              placeholder="Paste the destination wallet address here..."
             ></textarea>
-          </label>
+            <div class="box-help">
+              We recommend pasting directly from your wallet to avoid typos.
+            </div>
+          </div>
 
-          <div id="customer-message" class="rx-alert" style="display:none;"></div>
+          <!-- Message -->
+          <div id="customer-message" class="box-alert" style="display:none;"></div>
 
-          <button type="submit" class="rx-btn rx-btn-primary rx-btn-full">
+          <!-- Submit Button -->
+          <button type="submit" class="box-btn box-btn-cta box-btn-full">
             Submit Crypto Address
           </button>
         </form>
 
-        <div class="rx-footer-links">
-          <a href="index.html" class="rx-link">&larr; Back to Landing</a>
-        </div>
+        <footer class="box-card-footer">
+          <div class="box-security-note">
+            <strong>Security Note:</strong>
+            Box does not email or text your address. Your admin will retrieve it directly using the same Box Code.
+          </div>
+        </footer>
       </section>
+
+      <footer class="box-footer">
+        &copy; 2025 RiskXLabs &middot; We Fight Fraud
+      </footer>
     </main>
   </div>
 
   <script>
+    // Worker base URL
     const API_BASE = "https://riskxlabs-box-cloudflare-v2.agedotcom.workers.dev";
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -74,7 +107,7 @@
 
       function showMessage(type, text) {
         msgBox.textContent = text;
-        msgBox.className = "rx-alert " + (type === "error" ? "rx-alert-error" : "rx-alert-success");
+        msgBox.className = "box-alert " + (type === "error" ? "box-alert-error" : "box-alert-success");
         msgBox.style.display = "block";
       }
 
@@ -86,7 +119,7 @@
         const cryptoAddress = addrInput.value.trim();
 
         if (!/^[A-Z][0-9]{6}$/.test(code)) {
-          showMessage("error", "Box Code must be 1 letter followed by 6 digits (e.g. E123456).");
+          showMessage("error", "Box Code must be 1 letter followed by 6 digits (e.g. Q594210).");
           return;
         }
         if (!cryptoAddress) {
@@ -104,14 +137,18 @@
           const data = await res.json().catch(() => ({}));
 
           if (!res.ok || !data.ok) {
-            showMessage("error", data.message || "Unable to submit address. Please check your Box Code.");
+            showMessage(
+              "error",
+              data.message || "Unable to submit address. Please confirm your Box Code and try again."
+            );
             return;
           }
 
-          // Success
           const masked = cryptoAddress.replace(/^(.{6}).+(.{4})$/, "$1…$2");
-          showMessage("success", `Address submitted securely for Box Code ${code}. Masked preview: ${masked}`);
-          // Optionally clear the address but keep code
+          showMessage(
+            "success",
+            `Address submitted securely for Box Code ${code}. Masked preview: ${masked}`
+          );
           addrInput.value = "";
         } catch (err) {
           console.error("Submit error", err);
