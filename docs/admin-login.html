@@ -1,95 +1,102 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Box | Admin Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RiskXLabs Box – Admin Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="page">
-    <header class="header">
-      <a href="index.html" class="btn secondary back-link" style="font-size:0.75rem;padding:6px 10px;">← Back</a>
-      <div class="logo-mark">X</div>
-      <div class="brand">
-        <span class="brand-main">RiskXLabs</span>
-        <span class="brand-sub">Box Admin</span>
+<body class="rx-page">
+
+  <div class="rx-shell">
+    <header class="rx-header">
+      <div class="rx-logo-mark">RX</div>
+      <div class="rx-header-text">
+        <h1>RiskXLabs Box</h1>
+        <p>Admin Console Login</p>
       </div>
-      <p class="tagline">Admin console for generating and managing Box Codes.</p>
     </header>
 
-    <main class="main">
-      <section class="card form-card">
-        <h2>Admin Login</h2>
-        <p class="card-text">
-          Sign in to create Box Codes, monitor your active Boxes, and retrieve submitted crypto addresses.
+    <main class="rx-main">
+      <section class="rx-card">
+        <h2>Sign In</h2>
+        <p class="rx-muted">
+          Admins can generate one-time Box Codes and retrieve submitted crypto addresses.
         </p>
 
-        <form id="loginForm">
-          <div class="form-group">
-            <label class="label" for="email">Email</label>
-            <input id="email" class="input" type="email" autocomplete="email" required placeholder="you@riskxlabs.com" />
-          </div>
-          <div class="form-group">
-            <label class="label" for="password">Password</label>
-            <input id="password" class="input" type="password" autocomplete="current-password" required />
-            <div class="helper">
-              Use the password configured in the Worker secret <code>ADMIN_PASSWORD</code>.
-            </div>
-          </div>
-          <div class="actions">
-            <button type="submit" class="btn primary">Sign In</button>
-          </div>
+        <form id="login-form" class="rx-form">
+          <label class="rx-label">
+            Email
+            <input id="email" type="email" class="rx-input" required autocomplete="email" />
+          </label>
+
+          <label class="rx-label">
+            Admin Password
+            <input id="password" type="password" class="rx-input" required autocomplete="current-password" />
+          </label>
+
+          <div id="login-error" class="rx-alert rx-alert-error" style="display:none;"></div>
+
+          <button type="submit" class="rx-btn rx-btn-primary rx-btn-full">
+            Sign In
+          </button>
         </form>
 
-        <div id="message"></div>
+        <div class="rx-footer-links">
+          <a href="index.html" class="rx-link">&larr; Back to Landing</a>
+        </div>
       </section>
     </main>
-
-    <footer class="footer">
-      <span>© <span id="year"></span> RiskXLabs · We Fight Fraud</span>
-    </footer>
   </div>
 
   <script>
-    document.getElementById("year").textContent = new Date().getFullYear();
+    const API_BASE = "https://riskxlabs-box-cloudflare-v2.agedotcom.workers.dev";
 
-    function showMessage(type, text) {
-      const msg = document.getElementById("message");
-      msg.innerHTML = "";
-      if (!text) return;
-      const div = document.createElement("div");
-      div.className = "alert " + (type === "error" ? "alert-error" : "alert-info");
-      div.textContent = text;
-      msg.appendChild(div);
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("login-form");
+      const emailInput = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const errorBox = document.getElementById("login-error");
 
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      showMessage("", "");
+      function showError(msg) {
+        errorBox.textContent = msg || "Login failed.";
+        errorBox.style.display = "block";
+      }
 
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
+      form.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        errorBox.style.display = "none";
 
-      try {
-        const res = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json().catch(() => ({}));
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
 
-        if (!res.ok || !data.ok) {
-          showMessage("error", data.message || "Invalid login.");
+        if (!email || !password) {
+          showError("Email and password are required.");
           return;
         }
 
-        window.location.href = "/admin-dashboard.html";
-      } catch (err) {
-        console.error(err);
-        showMessage("error", "Network error. Please try again.");
-      }
+        try {
+          const res = await fetch(`${API_BASE}/api/admin/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+            credentials: "include" // important for session cookie
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok || !data.ok) {
+            showError(data.message || "Invalid credentials.");
+            return;
+          }
+
+          // Success – go to dashboard (GitHub Pages version)
+          window.location.href = "admin-dashboard.html";
+        } catch (err) {
+          console.error("Login error", err);
+          showError("Network or server error. Please try again.");
+        }
+      });
     });
   </script>
 </body>
