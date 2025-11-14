@@ -2,85 +2,119 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RiskXLabs Box – Admin Dashboard</title>
+  <title>RiskXLabs Box – Admin Console</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="rx-page">
-
-  <div class="rx-shell">
-    <header class="rx-header">
-      <div class="rx-logo-mark">RX</div>
-      <div class="rx-header-text">
-        <h1>RiskXLabs Box</h1>
-        <p>Admin Dashboard</p>
-      </div>
-      <div class="rx-header-meta">
-        <span id="admin-email" class="rx-pill rx-pill-muted">Loading…</span>
-        <button id="logout-btn" class="rx-btn rx-btn-outline">Logout</button>
-      </div>
+<body class="box-body">
+  <div class="box-shell">
+    <!-- Top Nav -->
+    <header class="box-topbar">
+      <a href="index.html" class="box-pill-link">
+        &larr; Home
+      </a>
     </header>
 
-    <main class="rx-main">
-      <!-- CREATE CODE -->
-      <section class="rx-card rx-card-split">
-        <div>
-          <h2>Generate New Box Code</h2>
-          <p class="rx-muted">
-            Create a one-time 7-character Box Code that expires after 15 minutes.
-          </p>
-          <button id="generate-btn" class="rx-btn rx-btn-primary">
-            Generate Box Code
+    <!-- Masthead -->
+    <section class="box-masthead">
+      <div class="box-logo-orbit">
+        <div class="box-logo-disc">X</div>
+      </div>
+      <div class="box-masthead-text">
+        <div class="box-masthead-label">RISKXLABS</div>
+        <h1 class="box-masthead-title">Box Console</h1>
+        <p class="box-masthead-subtitle">
+          Generate Box Codes, track your Boxes, and retrieve crypto addresses.
+        </p>
+      </div>
+    </section>
+
+    <main class="box-main">
+      <!-- Top strip: My Boxes + Actions -->
+      <section class="box-card box-card-strip">
+        <div class="box-strip-left">
+          <div class="box-strip-title">My Boxes</div>
+          <div class="box-strip-subtitle">
+            Signed in as <span id="admin-email" class="box-chip-muted">Loading…</span>
+          </div>
+        </div>
+        <div class="box-strip-right">
+          <button id="generate-btn" class="box-btn box-btn-cta">
+            Generate New Box Code
+          </button>
+          <button id="logout-btn" class="box-btn box-btn-outline">
+            Logout
           </button>
         </div>
-        <div class="rx-code-display">
-          <span class="rx-label-small">Latest Generated Code</span>
-          <div id="latest-code" class="rx-code-value">–</div>
-          <div id="latest-expiry" class="rx-muted rx-text-small"></div>
-        </div>
       </section>
 
-      <!-- ACTIVE BOXES -->
-      <section class="rx-card">
-        <div class="rx-card-header">
-          <h2>Active Boxes</h2>
-          <span class="rx-badge" id="active-count">0</span>
-        </div>
-        <div id="active-boxes" class="rx-table-container">
-          <div class="rx-table-empty">No active Box Codes yet.</div>
-        </div>
-      </section>
+      <!-- Lookup Card -->
+      <section class="box-card box-card-primary">
+        <header class="box-card-header">
+          <h2 class="box-card-title">Lookup Any Box Code</h2>
+          <p class="box-card-subtitle">
+            Search for the status and contents of any Box Code, regardless of who created it.
+          </p>
+        </header>
 
-      <!-- RECENT / EXPIRED BOXES -->
-      <section class="rx-card">
-        <div class="rx-card-header">
-          <h2>Expired / Consumed (Last 12 Hours)</h2>
-          <span class="rx-badge" id="recent-count">0</span>
-        </div>
-        <div id="recent-boxes" class="rx-table-container">
-          <div class="rx-table-empty">No recent Box Codes.</div>
-        </div>
-      </section>
-
-      <!-- LOOKUP -->
-      <section class="rx-card">
-        <h2>Lookup / Retrieve</h2>
-        <p class="rx-muted">
-          Search for any Box Code. You may retrieve the full crypto address if needed.
-        </p>
-
-        <form id="lookup-form" class="rx-form-inline">
-          <label class="rx-label-inline">
-            Box Code
-            <input id="lookup-code" class="rx-input" maxlength="7" required />
-          </label>
-          <button type="submit" class="rx-btn rx-btn-secondary">
+        <form id="lookup-form" class="box-form-inline">
+          <div class="box-field-inline">
+            <label class="box-label" for="lookup-code">Box Code</label>
+            <input
+              id="lookup-code"
+              type="text"
+              class="box-input"
+              maxlength="7"
+              placeholder="E.g. Q594210"
+              required
+            />
+          </div>
+          <button type="submit" class="box-btn box-btn-secondary">
             Search
           </button>
         </form>
 
-        <div id="lookup-result" class="rx-lookup-result"></div>
+        <div id="lookup-result" class="box-lookup-result"></div>
       </section>
+
+      <!-- Active Boxes -->
+      <section class="box-card">
+        <header class="box-card-header-row">
+          <div>
+            <h2 class="box-card-title-sm">Active Boxes (Created by You)</h2>
+            <p class="box-card-subtitle-sm">
+              Codes that have not yet expired and are still in use.
+            </p>
+          </div>
+          <div class="box-card-chip-group">
+            <span id="active-count" class="box-chip-pill">0 active</span>
+          </div>
+        </header>
+        <div id="active-boxes" class="box-table-container">
+          <div class="box-table-empty">No active Boxes created by you.</div>
+        </div>
+      </section>
+
+      <!-- Recent / Expired Boxes -->
+      <section class="box-card">
+        <header class="box-card-header-row">
+          <div>
+            <h2 class="box-card-title-sm">
+              Expired / Consumed (Last 12 Hours, Created by You)
+            </h2>
+          </div>
+          <div class="box-card-chip-group">
+            <span id="recent-count" class="box-chip-pill">0</span>
+          </div>
+        </header>
+        <div id="recent-boxes" class="box-table-container">
+          <div class="box-table-empty">No Boxes in the last 12 hours.</div>
+        </div>
+      </section>
+
+      <footer class="box-footer">
+        &copy; 2025 RiskXLabs &middot; We Fight Fraud
+      </footer>
     </main>
   </div>
 
@@ -91,8 +125,6 @@
       const emailChip = document.getElementById("admin-email");
       const logoutBtn = document.getElementById("logout-btn");
       const generateBtn = document.getElementById("generate-btn");
-      const latestCodeEl = document.getElementById("latest-code");
-      const latestExpiryEl = document.getElementById("latest-expiry");
       const activeContainer = document.getElementById("active-boxes");
       const recentContainer = document.getElementById("recent-boxes");
       const activeCount = document.getElementById("active-count");
@@ -108,8 +140,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data.ok === false) {
-          const msg = data.message || "Request failed.";
-          throw new Error(msg);
+          throw new Error(data.message || "Request failed.");
         }
         return data;
       }
@@ -121,55 +152,53 @@
         return dt.toLocaleString();
       }
 
-      function renderBoxes(container, boxes, highlightUnread) {
+      function renderTables(container, boxes, isActiveSection) {
         if (!boxes || boxes.length === 0) {
-          container.innerHTML = '<div class="rx-table-empty">No records.</div>';
+          container.innerHTML = '<div class="box-table-empty">No records.</div>';
           return;
         }
-        const rows = boxes.map(box => {
-          const statusLabel = box.status || "unknown";
-          const unread = highlightUnread && statusLabel === "address_submitted";
-          const cls = unread ? "rx-row-unread" : "";
-          return `
-            <div class="rx-row ${cls}">
-              <div class="rx-cell rx-cell-code">
-                <span class="rx-code-chip">${box.code}</span>
-                <span class="rx-status-pill rx-status-${statusLabel}">
-                  ${statusLabel.replace(/_/g, " ")}
-                </span>
-              </div>
-              <div class="rx-cell">
-                <span class="rx-label-small">Created</span>
-                <div>${formatDateTime(box.created_at)}</div>
-              </div>
-              <div class="rx-cell">
-                <span class="rx-label-small">Expires</span>
-                <div>${formatDateTime(box.expires_at)}</div>
-              </div>
-              <div class="rx-cell">
-                <span class="rx-label-small">Submitted</span>
-                <div>${formatDateTime(box.submitted_at)}</div>
-              </div>
-              <div class="rx-cell">
-                <span class="rx-label-small">Retrieved</span>
-                <div>${formatDateTime(box.retrieved_at)}</div>
-              </div>
-            </div>
-          `;
-        }).join("");
 
-        container.innerHTML = `<div class="rx-table">${rows}</div>`;
+        const header = `
+          <div class="box-table-row box-table-head">
+            <div>Code</div>
+            <div>Status</div>
+            <div>Created</div>
+            <div>Expires</div>
+            <div>Submitted</div>
+            <div>Retrieved</div>
+          </div>
+        `;
+
+        const rows = boxes
+          .map((b) => {
+            const unread = isActiveSection && b.status === "address_submitted";
+            const rowClass = unread ? "box-table-row box-row-unread" : "box-table-row";
+            return `
+              <div class="${rowClass}">
+                <div><span class="box-code-pill">${b.code}</span></div>
+                <div><span class="box-status-pill box-status-${b.status}">
+                  ${b.status.replace(/_/g, " ")}
+                </span></div>
+                <div>${formatDateTime(b.created_at)}</div>
+                <div>${formatDateTime(b.expires_at)}</div>
+                <div>${formatDateTime(b.submitted_at)}</div>
+                <div>${formatDateTime(b.retrieved_at)}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        container.innerHTML = header + rows;
       }
 
       async function loadMe() {
         try {
           const data = await fetchJson("/api/admin/me");
           emailChip.textContent = data.admin?.email || "Unknown admin";
-          emailChip.classList.remove("rx-pill-muted");
-          emailChip.classList.add("rx-pill");
+          emailChip.classList.remove("box-chip-muted");
+          emailChip.classList.add("box-chip");
         } catch (err) {
-          console.error(err);
-          // If not authenticated from GitHub Pages, bounce to login
+          console.error("Not authenticated", err);
           window.location.href = "admin-login.html";
         }
       }
@@ -178,10 +207,12 @@
         try {
           const active = await fetchJson("/api/admin/my-codes?scope=active");
           const recent = await fetchJson("/api/admin/my-codes?scope=recent");
-          activeCount.textContent = active.boxes?.length ?? 0;
-          recentCount.textContent = recent.boxes?.length ?? 0;
-          renderBoxes(activeContainer, active.boxes, true);
-          renderBoxes(recentContainer, recent.boxes, false);
+
+          activeCount.textContent = `${active.boxes?.length ?? 0} active`;
+          recentCount.textContent = `${recent.boxes?.length ?? 0}`;
+
+          renderTables(activeContainer, active.boxes, true);
+          renderTables(recentContainer, recent.boxes, false);
         } catch (err) {
           console.error("Error loading lists", err);
         }
@@ -189,22 +220,18 @@
 
       generateBtn.addEventListener("click", async () => {
         generateBtn.disabled = true;
-        generateBtn.textContent = "Generating...";
+        generateBtn.textContent = "Generating…";
         try {
-          const data = await fetchJson("/api/admin/create-code", {
+          await fetchJson("/api/admin/create-code", {
             method: "POST",
             headers: { "Content-Type": "application/json" }
           });
-          latestCodeEl.textContent = data.code || "—";
-          latestExpiryEl.textContent = data.box
-            ? `Expires: ${formatDateTime(data.box.expires_at)}`
-            : "";
           await loadLists();
         } catch (err) {
           alert(err.message || "Failed to generate Box Code.");
         } finally {
           generateBtn.disabled = false;
-          generateBtn.textContent = "Generate Box Code";
+          generateBtn.textContent = "Generate New Box Code";
         }
       });
 
@@ -221,6 +248,7 @@
       lookupForm.addEventListener("submit", async (ev) => {
         ev.preventDefault();
         lookupResult.innerHTML = "";
+
         const code = lookupCodeInput.value.trim().toUpperCase();
         if (!code) return;
 
@@ -234,7 +262,7 @@
           const box = data.box;
           if (!box) {
             lookupResult.innerHTML =
-              '<div class="rx-table-empty">No Box found for that code.</div>';
+              '<div class="box-table-empty">No Box found for that code.</div>';
             return;
           }
 
@@ -243,25 +271,27 @@
             : "Not submitted yet.";
 
           lookupResult.innerHTML = `
-            <div class="rx-lookup-card">
-              <div class="rx-lookup-header">
-                <span class="rx-code-chip">${box.code}</span>
-                <span class="rx-status-pill rx-status-${box.status}">
+            <div class="box-lookup-card">
+              <div class="box-lookup-header">
+                <span class="box-code-pill">${box.code}</span>
+                <span class="box-status-pill box-status-${box.status}">
                   ${box.status.replace(/_/g, " ")}
                 </span>
               </div>
-              <div class="rx-lookup-body">
+              <div class="box-lookup-body">
                 <div><strong>Created:</strong> ${formatDateTime(box.created_at)}</div>
                 <div><strong>Expires:</strong> ${formatDateTime(box.expires_at)}</div>
                 <div><strong>Submitted:</strong> ${formatDateTime(box.submitted_at)}</div>
                 <div><strong>Retrieved:</strong> ${formatDateTime(box.retrieved_at)}</div>
-                <div class="rx-mt-sm">
+                <div class="box-mt-sm">
                   <strong>Masked Crypto Address:</strong>
                   <code>${masked}</code>
                 </div>
               </div>
-              <div class="rx-lookup-footer">
-                <button id="retrieve-btn" class="rx-btn rx-btn-danger"
+              <div class="box-lookup-footer">
+                <button
+                  id="retrieve-btn"
+                  class="box-btn box-btn-danger"
                   ${box.status !== "address_submitted" ? "disabled" : ""}>
                   Retrieve Full Address
                 </button>
@@ -273,7 +303,7 @@
           if (retrieveBtn && box.status === "address_submitted") {
             retrieveBtn.addEventListener("click", async () => {
               retrieveBtn.disabled = true;
-              retrieveBtn.textContent = "Retrieving...";
+              retrieveBtn.textContent = "Retrieving…";
               try {
                 const res = await fetchJson("/api/admin/retrieve", {
                   method: "POST",
@@ -281,8 +311,8 @@
                   body: JSON.stringify({ code })
                 });
                 const full = res.crypto_address || "";
-                lookupResult.querySelector(".rx-lookup-body").innerHTML += `
-                  <div class="rx-mt-sm">
+                lookupResult.querySelector(".box-lookup-body").innerHTML += `
+                  <div class="box-mt-sm">
                     <strong>Full Crypto Address:</strong>
                     <code>${full}</code>
                   </div>
@@ -298,7 +328,7 @@
           }
         } catch (err) {
           lookupResult.innerHTML =
-            `<div class="rx-alert rx-alert-error">${err.message}</div>`;
+            `<div class="box-alert box-alert-error">${err.message}</div>`;
         }
       });
 
