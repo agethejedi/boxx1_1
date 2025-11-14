@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Box | Admin Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <a href="/" class="btn secondary back-link" style="font-size:0.75rem;padding:6px 10px;">← Back</a>
+      <div class="logo-mark">X</div>
+      <div class="brand">
+        <span class="brand-main">RiskXLabs</span>
+        <span class="brand-sub">Box Admin</span>
+      </div>
+      <p class="tagline">Admin console for generating and managing Box Codes.</p>
+    </header>
+
+    <main class="main">
+      <section class="card form-card">
+        <h2>Admin Login</h2>
+        <p class="card-text">
+          Sign in to create Box Codes, monitor your active Boxes, and retrieve submitted crypto addresses.
+        </p>
+
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="label" for="email">Email</label>
+            <input id="email" class="input" type="email" autocomplete="email" required placeholder="you@riskxlabs.com" />
+          </div>
+          <div class="form-group">
+            <label class="label" for="password">Password</label>
+            <input id="password" class="input" type="password" autocomplete="current-password" required />
+            <div class="helper">
+              Use the password configured in the Worker secret <code>ADMIN_PASSWORD</code>.
+            </div>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn primary">Sign In</button>
+          </div>
+        </form>
+
+        <div id="message"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> RiskXLabs · We Fight Fraud</span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    function showMessage(type, text) {
+      const msg = document.getElementById("message");
+      msg.innerHTML = "";
+      if (!text) return;
+      const div = document.createElement("div");
+      div.className = "alert " + (type === "error" ? "alert-error" : "alert-info");
+      div.textContent = text;
+      msg.appendChild(div);
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showMessage("", "");
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+          showMessage("error", data.message || "Invalid login.");
+          return;
+        }
+
+        window.location.href = "/admin-dashboard.html";
+      } catch (err) {
+        console.error(err);
+        showMessage("error", "Network error. Please try again.");
+      }
+    });
+  </script>
+</body>
+</html>
