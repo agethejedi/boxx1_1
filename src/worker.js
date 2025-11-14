@@ -1,25 +1,48 @@
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
-    // API routes
-    if (url.pathname.startsWith("/api/")) {
-      return handleApi(request, env, ctx);
-    }
-
-    // Static assets
-    return env.ASSETS.fetch(request);
-  }
-};
+// --- CONFIG: allowed frontends that can call this API ---
+const ALLOWED_ORIGINS = [
+  "https://riskxlabs-box-cloudflare-v2.agedotcom.workers.dev",
+  // TODO: replace this with your real GitHub Pages origin:
+  // e.g. "https://yourusername.github.io"
+  "https://your-github-pages-origin-here"
+];
 
 const SESSION_COOKIE = "box_session";
 const SESSION_TTL_HOURS = 24;
 
-function jsonResponse(status, body, extraHeaders = {}) {
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/api/")) {
+      return handleApi(request, env, ctx);
+    }
+
+    // static assets (served by Cloudflare)
+    return env.ASSETS.fetch(request);
+  }
+};
+
+// ---------- helpers ----------
+
+function getAllowedOrigin(request) {
+  const origin = request.headers.get("Origin") || "";
+  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  return "";
+}
+
+function jsonResponse(request, status, body, extraHeaders = {}) {
+  const allowedOrigin = getAllowedOrigin(request);
+  const base = {
+    "Content-Type": "application/json"
+  };
+  if (allowedOrigin) {
+    base["Access-Control-Allow-Origin"] = allowedOrigin;
+    base["Access-Control-Allow-Credentials"] = "true";
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      "Content-Type": "application/json",
+      ...base,
       ...extraHeaders
     }
   });
@@ -45,16 +68,15 @@ function getCookie(request, name) {
   return null;
 }
 
-function setSessionCookie(sessionId, url) {
-  const isSecure = url.startsWith("https://");
-  const attrs = [
+// NOTE: cross-site admin from GitHub Pages needs SameSite=None + Secure
+function setSessionCookie(sessionId) {
+  return [
     `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax"
-  ];
-  if (isSecure) attrs.push("Secure");
-  return attrs.join("; ");
+    "SameSite=None",
+    "Secure"
+  ].join("; ");
 }
 
 async function requireAdmin(request, env) {
@@ -97,28 +119,57 @@ async function refreshExpirations(env) {
     .run();
 }
 
+// ---------- main API handler ----------
+
 async function handleApi(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname;
 
+  // CORS preflight for GitHub Pages → Worker
+  if (request.method === "OPTIONS") {
+    const allowedOrigin = getAllowedOrigin(request);
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...(allowedOrigin
+          ? {
+              "Access-Control-Allow-Origin": allowedOrigin,
+              "Access-Control-Allow-Credentials": "true"
+            }
+          : {}),
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
+    });
+  }
+
   try {
-    // Admin auth: login
+    // ----- ADMIN LOGIN -----
     if (path === "/api/admin/login" && request.method === "POST") {
       const body = await parseJson(request);
       const email = (body.email || "").trim();
       const password = body.password || "";
       if (!email || !password) {
-        return jsonResponse(400, { ok: false, message: "Email and password required." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Email and password required."
+        });
       }
       const expected = env.ADMIN_PASSWORD;
       if (!expected) {
-        return jsonResponse(500, { ok: false, message: "ADMIN_PASSWORD not configured." });
+        return jsonResponse(request, 500, {
+          ok: false,
+          message: "ADMIN_PASSWORD not configured."
+        });
       }
       if (password !== expected) {
-        return jsonResponse(401, { ok: false, message: "Invalid credentials." });
+        return jsonResponse(request, 401, {
+          ok: false,
+          message: "Invalid credentials."
+        });
       }
 
-      // Ensure admin exists (idempotent, D1/SQLite-friendly)
+      // Ensure admin exists (SQLite / D1 friendly)
       try {
         await env.BOX_DB.prepare(
           "INSERT OR IGNORE INTO admins (email) VALUES (?)"
@@ -127,7 +178,6 @@ async function handleApi(request, env, ctx) {
           .run();
       } catch (e) {
         console.error("Failed to insert admin:", e);
-        // Don't fail login just because of this bookkeeping insert
       }
 
       const sessionId = crypto.randomUUID();
@@ -139,68 +189,91 @@ async function handleApi(request, env, ctx) {
         .bind(sessionId, email, now.toISOString(), expires.toISOString())
         .run();
 
-      const cookie = setSessionCookie(sessionId, request.url);
-      return jsonResponse(
-        200,
-        { ok: true },
-        { "Set-Cookie": cookie }
-      );
+      const cookie = setSessionCookie(sessionId);
+      return jsonResponse(request, 200, { ok: true }, {
+        "Set-Cookie": cookie
+      });
     }
 
-    // Admin auth: logout
+    // ----- ADMIN LOGOUT -----
     if (path === "/api/admin/logout" && request.method === "POST") {
       const sid = getCookie(request, SESSION_COOKIE);
       if (sid) {
         await env.BOX_DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sid).run();
       }
-      const expiredCookie = `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax`;
-      return jsonResponse(200, { ok: true }, { "Set-Cookie": expiredCookie });
+      const expiredCookie = `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0; SameSite=None; Secure`;
+      return jsonResponse(request, 200, { ok: true }, {
+        "Set-Cookie": expiredCookie
+      });
     }
 
-    // Admin: who am I
+    // ----- ADMIN: who am I -----
     if (path === "/api/admin/me" && request.method === "GET") {
       const email = await requireAdmin(request, env);
-      return jsonResponse(200, { ok: true, admin: { email } });
+      return jsonResponse(request, 200, { ok: true, admin: { email } });
     }
 
-    // Customer: submit address
+    // ----- CUSTOMER: submit address -----
     if (path === "/api/box/submit" && request.method === "POST") {
       await refreshExpirations(env);
       const body = await parseJson(request);
       const code = String(body.code || "").trim().toUpperCase();
       const cryptoAddress = (body.crypto_address || "").trim();
       if (!code || !cryptoAddress) {
-        return jsonResponse(400, { ok: false, message: "Code and crypto_address required." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Code and crypto_address required."
+        });
       }
       if (!/^[A-Z][0-9]{6}$/.test(code)) {
-        return jsonResponse(400, { ok: false, message: "Invalid code format." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Invalid code format."
+        });
       }
+
       const box = await env.BOX_DB.prepare("SELECT * FROM boxes WHERE code = ?")
         .bind(code)
         .first();
       if (!box) {
-        return jsonResponse(404, { ok: false, message: "Invalid or unknown Box Code." });
+        return jsonResponse(request, 404, {
+          ok: false,
+          message: "Invalid or unknown Box Code."
+        });
       }
       if (box.status !== "waiting_for_address") {
-        return jsonResponse(400, { ok: false, message: "This Box is no longer accepting addresses." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "This Box is no longer accepting addresses."
+        });
       }
       const now = new Date();
       const exp = new Date(box.expires_at);
       if (exp < now) {
-        await env.BOX_DB.prepare("UPDATE boxes SET status = 'expired_unused' WHERE id = ?")
+        await env.BOX_DB.prepare(
+          "UPDATE boxes SET status = 'expired_unused' WHERE id = ?"
+        )
           .bind(box.id)
           .run();
-        return jsonResponse(400, { ok: false, message: "This Box Code has expired. Ask your admin for a new one." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "This Box Code has expired. Ask your admin for a new one."
+        });
       }
+
       await env.BOX_DB.prepare(
         "UPDATE boxes SET crypto_address = ?, status = 'address_submitted', submitted_at = ? WHERE id = ?"
       )
         .bind(cryptoAddress, now.toISOString(), box.id)
         .run();
-      return jsonResponse(200, { ok: true, message: "Address submitted." });
+
+      return jsonResponse(request, 200, {
+        ok: true,
+        message: "Address submitted."
+      });
     }
 
-    // Admin: create new code
+    // ----- ADMIN: create new code -----
     if (path === "/api/admin/create-code" && request.method === "POST") {
       const adminEmail = await requireAdmin(request, env);
       await refreshExpirations(env);
@@ -217,7 +290,10 @@ async function handleApi(request, env, ctx) {
         code = null;
       }
       if (!code) {
-        return jsonResponse(500, { ok: false, message: "Unable to generate unique code." });
+        return jsonResponse(request, 500, {
+          ok: false,
+          message: "Unable to generate unique code."
+        });
       }
 
       const now = new Date();
@@ -229,7 +305,7 @@ async function handleApi(request, env, ctx) {
         .bind(id, code, now.toISOString(), exp.toISOString(), adminEmail)
         .run();
 
-      return jsonResponse(200, {
+      return jsonResponse(request, 200, {
         ok: true,
         code,
         box: {
@@ -247,7 +323,7 @@ async function handleApi(request, env, ctx) {
       });
     }
 
-    // Admin: my codes (active / recent)
+    // ----- ADMIN: my codes (active / recent) -----
     if (path === "/api/admin/my-codes" && request.method === "GET") {
       const adminEmail = await requireAdmin(request, env);
       await refreshExpirations(env);
@@ -279,77 +355,115 @@ async function handleApi(request, env, ctx) {
       }
 
       const res = await env.BOX_DB.prepare(query).bind(...args).all();
-      return jsonResponse(200, { ok: true, boxes: res.results || [] });
+      return jsonResponse(request, 200, {
+        ok: true,
+        boxes: res.results || []
+      });
     }
 
-    // Admin: lookup any code
+    // ----- ADMIN: lookup any code -----
     if (path === "/api/admin/lookup" && request.method === "POST") {
       await requireAdmin(request, env);
       await refreshExpirations(env);
       const body = await parseJson(request);
       const code = String(body.code || "").trim().toUpperCase();
       if (!code) {
-        return jsonResponse(400, { ok: false, message: "Code required." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Code required."
+        });
       }
       if (!/^[A-Z][0-9]{6}$/.test(code)) {
-        return jsonResponse(400, { ok: false, message: "Invalid code format." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Invalid code format."
+        });
       }
       const box = await env.BOX_DB.prepare("SELECT * FROM boxes WHERE code = ?")
         .bind(code)
         .first();
       if (!box) {
-        return jsonResponse(404, { ok: false, message: "Box not found." });
+        return jsonResponse(request, 404, {
+          ok: false,
+          message: "Box not found."
+        });
       }
-      return jsonResponse(200, { ok: true, box });
+      return jsonResponse(request, 200, { ok: true, box });
     }
 
-    // Admin: retrieve full address
+    // ----- ADMIN: retrieve full address -----
     if (path === "/api/admin/retrieve" && request.method === "POST") {
       const adminEmail = await requireAdmin(request, env);
       await refreshExpirations(env);
       const body = await parseJson(request);
       const code = String(body.code || "").trim().toUpperCase();
       if (!code) {
-        return jsonResponse(400, { ok: false, message: "Code required." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Code required."
+        });
       }
       if (!/^[A-Z][0-9]{6}$/.test(code)) {
-        return jsonResponse(400, { ok: false, message: "Invalid code format." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Invalid code format."
+        });
       }
+
       const box = await env.BOX_DB.prepare("SELECT * FROM boxes WHERE code = ?")
         .bind(code)
         .first();
       if (!box) {
-        return jsonResponse(404, { ok: false, message: "Box not found." });
+        return jsonResponse(request, 404, {
+          ok: false,
+          message: "Box not found."
+        });
       }
+
       const now = new Date();
       const exp = new Date(box.expires_at);
       if (exp < now) {
-        await env.BOX_DB.prepare("UPDATE boxes SET status = 'expired_unused' WHERE id = ?")
+        await env.BOX_DB.prepare(
+          "UPDATE boxes SET status = 'expired_unused' WHERE id = ?"
+        )
           .bind(box.id)
           .run();
-        return jsonResponse(400, { ok: false, message: "Box has expired." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Box has expired."
+        });
       }
       if (box.status !== "address_submitted") {
-        return jsonResponse(400, { ok: false, message: "Box not in a retrievable state." });
+        return jsonResponse(request, 400, {
+          ok: false,
+          message: "Box not in a retrievable state."
+        });
       }
+
       await env.BOX_DB.prepare(
         "UPDATE boxes SET status = 'consumed', retrieved_at = ?, last_retrieved_by_admin_email = ? WHERE id = ?"
       )
         .bind(now.toISOString(), adminEmail, box.id)
         .run();
-      const updated = await env.BOX_DB.prepare("SELECT crypto_address FROM boxes WHERE id = ?")
+      const updated = await env.BOX_DB.prepare(
+        "SELECT crypto_address FROM boxes WHERE id = ?"
+      )
         .bind(box.id)
         .first();
-      return jsonResponse(200, { ok: true, crypto_address: updated.crypto_address });
+
+      return jsonResponse(request, 200, {
+        ok: true,
+        crypto_address: updated.crypto_address
+      });
     }
 
-    // Fallback
-    return jsonResponse(404, { ok: false, message: "Not found" });
+    // fallback
+    return jsonResponse(request, 404, { ok: false, message: "Not found" });
   } catch (err) {
     if (err && typeof err.status === "number" && err.body) {
-      return jsonResponse(err.status, err.body);
+      return jsonResponse(request, err.status, err.body);
     }
     console.error("Worker error", err);
-    return jsonResponse(500, { ok: false, message: "Internal error" });
+    return jsonResponse(request, 500, { ok: false, message: "Internal error" });
   }
 }
