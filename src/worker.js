@@ -3,7 +3,7 @@ const ALLOWED_ORIGINS = [
   "https://riskxlabs-box-cloudflare-v2.agedotcom.workers.dev",
   // TODO: replace this with your real GitHub Pages origin:
   // e.g. "https://yourusername.github.io"
-  "https://your-github-pages-origin-here"
+  "https://agethejedi.github.io"
 ];
 
 const SESSION_COOKIE = "box_session";
