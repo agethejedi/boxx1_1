@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Box | RiskXLabs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div class="logo-mark">X</div>
+      <div class="brand">
+        <span class="brand-main">RiskXLabs</span>
+        <span class="brand-sub">Box</span>
+      </div>
+      <p class="tagline">One-time secure crypto address drop.</p>
+    </header>
+
+    <main class="main">
+      <section class="cards">
+        <article class="card">
+          <h2>Customer Session</h2>
+          <p class="card-text">
+            Have a Box code? Enter your 7-character code and securely submit your
+            crypto address. Your code is valid for 15 minutes.
+          </p>
+          <a href="/customer.html" class="btn primary">Submit Crypto Address</a>
+        </article>
+
+        <article class="card">
+          <h2>Admin Console</h2>
+          <p class="card-text">
+            Generate new Box codes, view your active and unread Boxes, and search
+            for any code to verify status or retrieve a submitted address.
+          </p>
+          <a href="/admin-login.html" class="btn secondary">Go to Admin Console</a>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> RiskXLabs · We Fight Fraud</span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+
+name = "riskxlabs-box-cloudflare"
+main = "src/worker.js"
+compatibility_date = "2025-01-13"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "BOX_DB"
+database_name = "riskxlabs_box_db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"

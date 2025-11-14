@@ -1,0 +1,373 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Box | Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <a href="/" class="btn secondary back-link" style="font-size:0.75rem;padding:6px 10px;">← Home</a>
+      <div class="logo-mark">X</div>
+      <div class="brand">
+        <span class="brand-main">RiskXLabs</span>
+        <span class="brand-sub">Box Console</span>
+      </div>
+      <p class="tagline">Generate Box Codes, track your Boxes, and retrieve crypto addresses.</p>
+    </header>
+
+    <main class="main">
+      <section class="card" style="max-width:1100px;margin:0 auto 18px;">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;">
+          <div>
+            <h2 style="margin:0 0 4px;">My Boxes</h2>
+            <div class="helper" id="adminInfo">Signed in</div>
+          </div>
+          <div class="actions" style="margin-top:0;">
+            <button id="generateCodeBtn" class="btn primary">Generate New Box Code</button>
+            <button id="logoutBtn" class="btn secondary">Logout</button>
+          </div>
+        </div>
+
+        <div id="generatedCodeSection" style="display:none;margin-top:16px;">
+          <div class="alert alert-success" id="generatedCodeAlert">
+            Share this code with your customer. It will expire in 15 minutes.
+          </div>
+          <div style="font-size:1.8rem;font-weight:700;letter-spacing:0.2em;margin:8px 0;font-family:monospace;" id="generatedCodeText"></div>
+          <div class="helper">
+            Tip: Read it aloud as “Letter, then digits” to reduce mis-reads. Example: “Q, five, nine, four, two, one, zero.”
+          </div>
+        </div>
+      </section>
+
+      <section class="card form-card" style="margin-bottom:18px;">
+        <h3 style="margin-top:0;">Lookup Any Box Code</h3>
+        <p class="card-text">
+          Search for the status and contents of any Box Code, regardless of who created it.
+        </p>
+        <form id="searchForm">
+          <div class="form-group">
+            <label class="label" for="searchCode">Box Code</label>
+            <input id="searchCode" class="input" type="text" maxlength="7" placeholder="E.g. Q594210" />
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn secondary">Search</button>
+          </div>
+        </form>
+        <div id="searchResult"></div>
+      </section>
+
+      <section>
+        <div class="table-wrapper">
+          <div class="table-title">
+            <span>Active Boxes (Created by You)</span>
+            <span class="pill" id="activeCountPill">0 active</span>
+          </div>
+          <table class="table" id="activeTable">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="5">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section style="margin-top:18px;">
+        <div class="table-wrapper">
+          <div class="table-title">
+            <span>Expired / Consumed (Last 12 Hours, Created by You)</span>
+            <span class="pill" id="recentCountPill">0</span>
+          </div>
+          <table class="table" id="recentTable">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Final Status</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Retrieved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="5">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="dashboardMessages" style="margin-top:18px;"></section>
+    </main>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> RiskXLabs · We Fight Fraud</span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    function normalizeCode(raw) {
+      return raw.trim().toUpperCase();
+    }
+    function formatDate(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleString();
+    }
+    function showDashboardMessage(type, text) {
+      const container = document.getElementById("dashboardMessages");
+      container.innerHTML = "";
+      if (!text) return;
+      const div = document.createElement("div");
+      div.className = "alert " + (type === "error" ? "alert-error" : type === "success" ? "alert-success" : "alert-info");
+      div.textContent = text;
+      container.appendChild(div);
+    }
+    async function fetchJSON(url, options) {
+      const res = await fetch(url, options || {});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        const err = new Error(data.message || "Request failed");
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+    async function loadDashboard() {
+      try {
+        const me = await fetchJSON("/api/admin/me");
+        const adminInfo = document.getElementById("adminInfo");
+        adminInfo.textContent = "Signed in as " + (me.admin && me.admin.email ? me.admin.email : "admin");
+      } catch (e) {
+        window.location.href = "/admin-login.html";
+        return;
+      }
+      try {
+        const active = await fetchJSON("/api/admin/my-codes?scope=active");
+        renderActiveTable(active.boxes || []);
+      } catch (e) {
+        console.error(e);
+        renderActiveTable([]);
+        showDashboardMessage("error", "Unable to load active Boxes.");
+      }
+      try {
+        const recent = await fetchJSON("/api/admin/my-codes?scope=recent");
+        renderRecentTable(recent.boxes || []);
+      } catch (e) {
+        console.error(e);
+        renderRecentTable([]);
+        showDashboardMessage("error", "Unable to load recent Boxes.");
+      }
+    }
+    function renderActiveTable(boxes) {
+      const tbody = document.querySelector("#activeTable tbody");
+      tbody.innerHTML = "";
+      document.getElementById("activeCountPill").textContent = boxes.length + " active";
+      if (!boxes.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 5;
+        td.textContent = "No active Boxes created by you.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      boxes.forEach((box) => {
+        const tr = document.createElement("tr");
+        if (box.status === "address_submitted") tr.classList.add("unread");
+        const codeTd = document.createElement("td");
+        codeTd.textContent = box.code;
+        codeTd.style.fontFamily = "monospace";
+        codeTd.style.letterSpacing = "0.12em";
+        const statusTd = document.createElement("td");
+        let label = "Waiting for address";
+        if (box.status === "address_submitted") label = "Unread (submitted)";
+        else if (box.status === "consumed") label = "Consumed";
+        statusTd.textContent = label;
+        const createdTd = document.createElement("td");
+        createdTd.textContent = formatDate(box.created_at);
+        const expiresTd = document.createElement("td");
+        expiresTd.textContent = formatDate(box.expires_at);
+        const submittedTd = document.createElement("td");
+        submittedTd.textContent = formatDate(box.submitted_at);
+        tr.appendChild(codeTd);
+        tr.appendChild(statusTd);
+        tr.appendChild(createdTd);
+        tr.appendChild(expiresTd);
+        tr.appendChild(submittedTd);
+        tbody.appendChild(tr);
+      });
+    }
+    function renderRecentTable(boxes) {
+      const tbody = document.querySelector("#recentTable tbody");
+      tbody.innerHTML = "";
+      document.getElementById("recentCountPill").textContent = boxes.length;
+      if (!boxes.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 5;
+        td.textContent = "No Boxes in the last 12 hours.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      boxes.forEach((box) => {
+        const tr = document.createElement("tr");
+        const codeTd = document.createElement("td");
+        codeTd.textContent = box.code;
+        codeTd.style.fontFamily = "monospace";
+        codeTd.style.letterSpacing = "0.12em";
+        const statusTd = document.createElement("td");
+        statusTd.textContent = box.status === "consumed" ? "Consumed" : "Expired";
+        const createdTd = document.createElement("td");
+        createdTd.textContent = formatDate(box.created_at);
+        const expiresTd = document.createElement("td");
+        expiresTd.textContent = formatDate(box.expires_at);
+        const retrievedTd = document.createElement("td");
+        retrievedTd.textContent = formatDate(box.retrieved_at);
+        tr.appendChild(codeTd);
+        tr.appendChild(statusTd);
+        tr.appendChild(createdTd);
+        tr.appendChild(expiresTd);
+        tr.appendChild(retrievedTd);
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById("generateCodeBtn").addEventListener("click", async () => {
+      try {
+        const data = await fetchJSON("/api/admin/create-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const section = document.getElementById("generatedCodeSection");
+        const codeText = document.getElementById("generatedCodeText");
+        section.style.display = "block";
+        codeText.textContent = data.code || "";
+        showDashboardMessage("success", "New Box Code generated.");
+        const active = await fetchJSON("/api/admin/my-codes?scope=active");
+        renderActiveTable(active.boxes || []);
+      } catch (e) {
+        console.error(e);
+        showDashboardMessage("error", e.message || "Unable to generate Box Code.");
+      }
+    });
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      try {
+        await fetchJSON("/api/admin/logout", { method: "POST" });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        window.location.href = "/admin-login.html";
+      }
+    });
+    document.getElementById("searchForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const codeInput = document.getElementById("searchCode");
+      const rawCode = codeInput.value;
+      const code = normalizeCode(rawCode);
+      const container = document.getElementById("searchResult");
+      container.innerHTML = "";
+      if (!code) return;
+      const pattern = /^[A-Z][0-9]{6}$/;
+      if (!pattern.test(code)) {
+        container.innerHTML = '<div class="alert alert-error">Enter a valid Box Code (one letter followed by six digits).</div>';
+        return;
+      }
+      try {
+        const data = await fetchJSON("/api/admin/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code })
+        });
+        const box = data.box;
+        if (!box) {
+          container.innerHTML = '<div class="alert alert-error">No Box found for that code.</div>';
+          return;
+        }
+        const maskedAddress = box.crypto_address
+          ? box.crypto_address.length > 12
+            ? box.crypto_address.slice(0, 10) + "…"
+            : box.crypto_address
+          : "—";
+        const canRetrieve = box.status === "address_submitted";
+        let html = `
+          <div class="card" style="margin-top:12px;">
+            <h3 style="margin-top:0;">Box ${box.code}</h3>
+            <p class="card-text" style="margin-bottom:10px;">
+              Created by: ${box.created_by_admin_email || "unknown"}
+            </p>
+            <div class="helper" style="margin-bottom:10px;">
+              Status: ${box.status} · Created: ${formatDate(box.created_at)} · Expires: ${formatDate(box.expires_at)}
+            </div>
+            <div class="helper" style="margin-bottom:10px;">
+              Submitted at: ${formatDate(box.submitted_at)} · Retrieved at: ${formatDate(box.retrieved_at)}
+            </div>
+            <div class="helper" style="margin-bottom:10px;font-family:monospace;">
+              Crypto address (masked): ${maskedAddress}
+            </div>
+        `;
+        if (canRetrieve) {
+          html += `
+            <div class="actions">
+              <button id="retrieveBtn" class="btn primary">Retrieve Full Address</button>
+            </div>
+          `;
+        }
+        html += "</div>";
+        container.innerHTML = html;
+        if (canRetrieve) {
+          document.getElementById("retrieveBtn").addEventListener("click", async () => {
+            try {
+              const res = await fetchJSON("/api/admin/retrieve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code })
+              });
+              const addr = res.crypto_address || "";
+              container.innerHTML = `
+                <div class="card" style="margin-top:12px;">
+                  <h3 style="margin-top:0;">Box ${box.code} · Retrieved</h3>
+                  <div class="alert alert-success" style="margin-bottom:12px;">
+                    Full crypto address retrieved. Copy and use it immediately.
+                  </div>
+                  <div class="helper" style="margin-bottom:4px;">Full address:</div>
+                  <div style="font-family:monospace;font-size:0.9rem;word-break:break-all;margin-bottom:12px;">
+                    ${addr}
+                  </div>
+                  <div class="alert alert-info">
+                    In production, you may choose to purge this address once retrieved.
+                  </div>
+                </div>
+              `;
+              const active = await fetchJSON("/api/admin/my-codes?scope=active");
+              renderActiveTable(active.boxes || []);
+              const recent = await fetchJSON("/api/admin/my-codes?scope=recent");
+              renderRecentTable(recent.boxes || []);
+            } catch (err) {
+              console.error(err);
+              container.innerHTML = '<div class="alert alert-error">Unable to retrieve full address.</div>';
+            }
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        container.innerHTML = '<div class="alert alert-error">Error searching for that Box Code.</div>';
+      }
+    });
+    loadDashboard();
+  </script>
+</body>
+</html>

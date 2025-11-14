@@ -1,0 +1,144 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Box | Submit Crypto Address</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <a href="/" class="btn secondary back-link" style="font-size:0.75rem;padding:6px 10px;">← Back</a>
+      <div class="logo-mark">X</div>
+      <div class="brand">
+        <span class="brand-main">RiskXLabs</span>
+        <span class="brand-sub">Box</span>
+      </div>
+      <p class="tagline">Submit your crypto address using a one-time Box Code.</p>
+    </header>
+
+    <main class="main">
+      <section class="card form-card">
+        <h2>Customer Session</h2>
+        <p class="card-text">
+          Enter the 7-character Box Code you were given, along with the crypto address
+          you want to send. The code is valid for 15 minutes from when it was created.
+        </p>
+
+        <form id="submitForm">
+          <div class="form-group">
+            <label class="label" for="code">Box Code</label>
+            <input id="code" class="input" type="text" maxlength="7" autocomplete="off"
+              placeholder="E.g. A123456" required />
+            <div class="helper">One letter followed by six digits. Example: Q594210.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="label" for="address">Crypto Address</label>
+            <textarea id="address" class="textarea" placeholder="Paste the full crypto address here" required></textarea>
+            <div class="helper">We recommend pasting directly from your wallet to avoid typos.</div>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn primary">Submit Crypto Address</button>
+          </div>
+        </form>
+
+        <div id="message"></div>
+
+        <div id="confirmation" class="alert alert-success" style="display:none;margin-top:16px;">
+          <div><strong>Success!</strong> Your crypto address has been securely submitted.</div>
+          <div style="margin-top:6px;font-size:0.85rem;">
+            Address (masked): <span id="maskedAddress" style="font-family:monospace;"></span>
+          </div>
+          <div style="margin-top:6px;font-size:0.8rem;color:#9ca3af;">
+            You may now close this window or app.
+          </div>
+        </div>
+
+        <div class="alert alert-info" style="margin-top:16px;">
+          <strong>Security Note:</strong> Box does not email or text your address.
+          Your admin will retrieve it directly using the same Box Code.
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> RiskXLabs · We Fight Fraud</span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    function normalizeCode(raw) {
+      return raw.trim().toUpperCase();
+    }
+
+    function maskAddress(addr) {
+      if (!addr) return "";
+      const trimmed = addr.trim();
+      if (trimmed.length <= 10) return trimmed;
+      return trimmed.slice(0, 6) + "…" + trimmed.slice(-4);
+    }
+
+    function showMessage(type, text) {
+      const msg = document.getElementById("message");
+      msg.innerHTML = "";
+      if (!text) return;
+      const div = document.createElement("div");
+      div.className = "alert " + (type === "error" ? "alert-error" : "alert-info");
+      div.textContent = text;
+      msg.appendChild(div);
+    }
+
+    document.getElementById("submitForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showMessage("", "");
+      const codeInput = document.getElementById("code");
+      const addrInput = document.getElementById("address");
+      const confirmation = document.getElementById("confirmation");
+      const maskedSpan = document.getElementById("maskedAddress");
+
+      let code = normalizeCode(codeInput.value);
+      const address = addrInput.value.trim();
+
+      const codePattern = /^[A-Z][0-9]{6}$/;
+      if (!codePattern.test(code)) {
+        showMessage("error", "Please enter a valid Box Code (one letter followed by six digits).");
+        return;
+      }
+      if (!address) {
+        showMessage("error", "Please paste a crypto address.");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/box/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, crypto_address: address })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          showMessage("error", data.message || "Unable to submit address. Please check your code and try again.");
+          confirmation.style.display = "none";
+          return;
+        }
+
+        confirmation.style.display = "block";
+        maskedSpan.textContent = maskAddress(address);
+        document.getElementById("submitForm").style.display = "none";
+        showMessage("", "");
+      } catch (err) {
+        console.error(err);
+        showMessage("error", "Network error. Please try again in a moment.");
+        confirmation.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
