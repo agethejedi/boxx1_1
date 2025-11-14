@@ -10,4 +10,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "BOX_DB"
 database_name = "riskxlabs_box_db"
-database_id = "1cb2a1f0-c0d1-4a14-86ce-3e9bccc72d21"
+database_id = "e9de5049-47d1-4a52-9748-810dbc8fbe94"
